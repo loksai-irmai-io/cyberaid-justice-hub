@@ -16,7 +16,11 @@ const ViewReports = () => {
   const { data: reports = [], isLoading, error } = useQuery({
     queryKey: ['reports'],
     queryFn: reportService.getReports,
+    onSuccess: (data) => {
+      console.log('Reports fetched successfully:', data.length, 'reports');
+    },
     onError: (err: Error) => {
+      console.error('Error fetching reports:', err);
       toast({
         title: "Error",
         description: err.message || "Failed to fetch reports",

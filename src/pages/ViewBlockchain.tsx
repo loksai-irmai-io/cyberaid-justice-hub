@@ -17,7 +17,11 @@ const ViewBlockchain = () => {
   const { data: blockchain = [], isLoading, error } = useQuery({
     queryKey: ['blockchain'],
     queryFn: blockchainService.getBlocks,
+    onSuccess: (data) => {
+      console.log('Blockchain data fetched successfully:', data.length, 'blocks');
+    },
     onError: (err: Error) => {
+      console.error('Error fetching blockchain data:', err);
       toast({
         title: "Error",
         description: err.message || "Failed to fetch blockchain data",
