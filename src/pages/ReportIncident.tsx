@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/Card';
@@ -8,6 +9,7 @@ import { reportService } from '@/services/api';
 const ReportIncident = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [evidenceType, setEvidenceType] = useState('Screenshot');
   const [extractedText, setExtractedText] = useState('');
   
@@ -35,22 +37,41 @@ const ReportIncident = () => {
       // Extract text if it's an image
       if (evidenceType === 'Screenshot' && file.type.startsWith('image/')) {
         try {
-          setIsLoading(true);
+          setIsExtracting(true);
+          // Create a new FormData object for the file upload
+          const formData = new FormData();
+          formData.append('file', file);
+          
           const response = await reportService.extractTextFromImage(file);
-          setExtractedText(response.extracted_text);
-          toast({
-            title: "Text extracted",
-            description: "Text has been successfully extracted from the image.",
-          });
+          console.log('Text extraction response:', response);
+          
+          if (response && response.extracted_text) {
+            setExtractedText(response.extracted_text);
+            toast({
+              title: "Text extracted",
+              description: "Text has been successfully extracted from the image.",
+            });
+            
+            // If extracted text is empty but we didn't get an error
+            if (!response.extracted_text.trim()) {
+              toast({
+                title: "No text found",
+                description: "No readable text was found in the image.",
+                variant: "destructive",
+              });
+            }
+          } else {
+            throw new Error("Failed to extract text from image");
+          }
         } catch (error) {
           console.error('Error extracting text:', error);
           toast({
             title: "Extraction failed",
-            description: "Failed to extract text from image.",
+            description: "Failed to extract text from image. Please try a clearer image.",
             variant: "destructive",
           });
         } finally {
-          setIsLoading(false);
+          setIsExtracting(false);
         }
       }
     }
@@ -223,7 +244,7 @@ const ReportIncident = () => {
               <div className="space-y-2">
                 <span className="text-sm font-medium">Evidence Type</span>
                 <div className="flex flex-wrap gap-4">
-                  <label className={`flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer transition-all ${evidenceType === 'Screenshot' ? 'border-primary bg-primary/5 text-primary' : 'border-input'}`}>
+                  <label className={`flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer transition-all ${evidenceType === 'Screenshot' ? 'border-accent bg-accent/10 text-accent accent-glow' : 'border-input'}`}>
                     <input
                       type="radio"
                       name="evidence_type"
@@ -236,7 +257,7 @@ const ReportIncident = () => {
                     <span>Screenshot</span>
                   </label>
                   
-                  <label className={`flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer transition-all ${evidenceType === 'Voice' ? 'border-primary bg-primary/5 text-primary' : 'border-input'}`}>
+                  <label className={`flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer transition-all ${evidenceType === 'Voice' ? 'border-accent bg-accent/10 text-accent accent-glow' : 'border-input'}`}>
                     <input
                       type="radio"
                       name="evidence_type"
@@ -262,7 +283,7 @@ const ReportIncident = () => {
                   >
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                       {evidenceType === 'Screenshot' ? (
-                        <Upload className="w-8 h-8 mb-3 text-muted-foreground" />
+                        <Upload className={`w-8 h-8 mb-3 ${isExtracting ? 'animate-pulse text-accent' : 'text-muted-foreground'}`} />
                       ) : (
                         <Mic className="w-8 h-8 mb-3 text-muted-foreground" />
                       )}
@@ -272,6 +293,7 @@ const ReportIncident = () => {
                       <p className="text-xs text-muted-foreground">
                         {evidenceType === 'Screenshot' ? 'PNG, JPG or JPEG' : 'MP3 or WAV'}
                       </p>
+                      {isExtracting && <p className="text-xs text-accent mt-2">Extracting text...</p>}
                     </div>
                     <input
                       id="file"
@@ -279,6 +301,7 @@ const ReportIncident = () => {
                       accept={evidenceType === 'Screenshot' ? "image/png, image/jpeg, image/jpg" : "audio/mpeg, audio/wav"}
                       className="hidden"
                       onChange={handleFileChange}
+                      disabled={isExtracting}
                     />
                   </label>
                 </div>
@@ -292,7 +315,7 @@ const ReportIncident = () => {
               {extractedText && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Extracted Text</label>
-                  <div className="bg-muted/20 p-3 rounded-md text-sm">
+                  <div className="bg-accent/5 border border-accent/20 p-3 rounded-md text-sm">
                     {extractedText}
                   </div>
                 </div>

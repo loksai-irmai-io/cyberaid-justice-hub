@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
@@ -23,7 +22,8 @@ import json
 import logging
 
 # Configure logging
-logging.basicConfig(filename="app.log", level=logging.INFO)
+logging.basicConfig(filename="app.log", level=logging.INFO, 
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Configure Google Gemini AI API Key
 API_KEY = "AIzaSyCu5clceXxwWZf6-mi0xkDEXUNmlAkNW8s"
@@ -135,15 +135,32 @@ previous_block = blockchain[-1] if blockchain else create_genesis_block()
 # Function to extract text using EasyOCR
 def extract_text_from_image(image_path):
     try:
+        logging.info(f"Extracting text from: {image_path}")
+        
+        # Open the image and process it
         img = Image.open(image_path)
+        logging.info(f"Image opened successfully: {img.format}, {img.size}, {img.mode}")
+        
+        # Convert to grayscale if needed
         if img.mode != 'L':
             img = img.convert('L')
+            logging.info(f"Converted image to grayscale")
+        
+        # Convert to numpy array
         img_np = np.array(img)
+        logging.info(f"Converted image to numpy array: {img_np.shape}")
+        
+        # Perform OCR
+        logging.info("Performing OCR with EasyOCR...")
         results = reader.readtext(img_np)
+        
+        # Extract the text from the results
         extracted_text = "\n".join([res[1] for res in results])
+        logging.info(f"Extracted text (length: {len(extracted_text)}): {extracted_text[:100]}...")
+        
         return extracted_text
     except Exception as e:
-        logging.error(f"Error extracting text: {e}")
+        logging.error(f"Error extracting text: {str(e)}", exc_info=True)
         return ""
 
 # Function to classify crime using Gemini AI
@@ -319,20 +336,30 @@ async def root():
 @app.post("/extract-text", response_model=ExtractTextResponse)
 async def extract_text(file: UploadFile = File(...)):
     try:
+        # Log information about the file
+        logging.info(f"Received file: {file.filename}, Content-Type: {file.content_type}")
+        
+        # Create a temporary directory if it doesn't exist
+        os.makedirs("temp", exist_ok=True)
+        
         # Save the uploaded file temporarily
-        temp_file_path = f"temp_{file.filename}"
+        temp_file_path = f"temp/{file.filename}"
         with open(temp_file_path, "wb") as f:
-            f.write(await file.read())
+            content = await file.read()
+            f.write(content)
+            logging.info(f"Saved file to {temp_file_path}, size: {len(content)} bytes")
         
         # Extract text from the image
         extracted_text = extract_text_from_image(temp_file_path)
         
         # Clean up the temporary file
         os.remove(temp_file_path)
+        logging.info(f"Removed temporary file: {temp_file_path}")
         
+        # Return the extracted text
         return {"extracted_text": extracted_text}
     except Exception as e:
-        logging.error(f"Error in /extract-text: {e}")
+        logging.error(f"Error in /extract-text: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/classify", response_model=ClassificationResponse)

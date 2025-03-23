@@ -65,11 +65,29 @@ export const reportService = {
   extractTextFromImage: async (file: File): Promise<ExtractedTextResponse> => {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await fetch(`${API_BASE_URL}/extract-text`, {
-      method: 'POST',
-      body: formData,
-    });
-    return handleResponse(response);
+    
+    console.log('Sending file for text extraction:', file.name, file.type, file.size);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/extract-text`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      console.log('Extract text response status:', response.status);
+      
+      if (!response.ok) {
+        console.error('Error response:', await response.text());
+        throw new Error(`API Error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Extracted text data:', data);
+      return data;
+    } catch (error) {
+      console.error('Error in extractTextFromImage:', error);
+      throw error;
+    }
   },
 };
 
@@ -81,4 +99,3 @@ export const blockchainService = {
     return handleResponse(response);
   },
 };
-
