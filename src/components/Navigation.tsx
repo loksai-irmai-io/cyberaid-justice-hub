@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, FileText, Search, Database } from 'lucide-react';
+import { Home, FileText, Search, Database, Shield, ShieldAlert, Lock } from 'lucide-react';
 
 interface NavItemProps {
   to: string;
@@ -17,8 +17,8 @@ const NavItem: React.FC<NavItemProps> = ({ to, icon, label }) => {
         flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium
         transition-all duration-300 ease-in-out
         ${isActive ? 
-          'bg-primary text-primary-foreground shadow-md' : 
-          'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+          'bg-accent text-accent-foreground shadow-md accent-glow' : 
+          'text-muted-foreground hover:text-foreground hover:bg-accent/10'
         }
       `}
     >
@@ -30,13 +30,16 @@ const NavItem: React.FC<NavItemProps> = ({ to, icon, label }) => {
 
 const Navigation: React.FC = () => {
   return (
-    <nav className="lg:w-72 lg:h-screen lg:sticky top-0 z-20 bg-card shadow-md lg:shadow-none border-b lg:border-r border-border">
+    <nav className="lg:w-72 lg:h-screen lg:sticky top-0 z-20 bg-sidebar shadow-md lg:shadow-none border-b lg:border-r border-border">
       <div className="flex flex-col p-6">
-        <div className="flex items-center gap-2 px-2 mb-8">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold">
-            C
+        <div className="flex items-center gap-3 px-2 mb-8">
+          <div className="w-10 h-10 rounded-md bg-accent/20 border border-accent/30 flex items-center justify-center text-accent font-bold accent-glow">
+            <ShieldAlert size={20} />
           </div>
-          <h1 className="text-xl font-semibold tracking-tight">CyberAID</h1>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight cyber-glow">CyberAID</h1>
+            <p className="text-xs text-muted-foreground">Incident Response System</p>
+          </div>
         </div>
         
         <div className="space-y-2">
