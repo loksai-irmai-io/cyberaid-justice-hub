@@ -38,9 +38,6 @@ const ReportIncident = () => {
       if (evidenceType === 'Screenshot' && file.type.startsWith('image/')) {
         try {
           setIsExtracting(true);
-          // Create a new FormData object for the file upload
-          const formData = new FormData();
-          formData.append('file', file);
           
           const response = await reportService.extractTextFromImage(file);
           console.log('Text extraction response:', response);
@@ -63,11 +60,11 @@ const ReportIncident = () => {
           } else {
             throw new Error("Failed to extract text from image");
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error extracting text:', error);
           toast({
             title: "Extraction failed",
-            description: "Failed to extract text from image. Please try a clearer image.",
+            description: error.message || "Failed to extract text from image. Please try a clearer image.",
             variant: "destructive",
           });
         } finally {
@@ -93,9 +90,13 @@ const ReportIncident = () => {
     }
     
     try {
+      console.log('Starting report submission process');
+      
       // Classify crime type
+      console.log('Classifying crime type');
       const classificationResponse = await reportService.classifyCrimeType(formData.description);
       const crime_type = classificationResponse.crime_type;
+      console.log('Crime classified as:', crime_type);
       
       // Create form data for submission
       const submitFormData = new FormData();
@@ -115,8 +116,12 @@ const ReportIncident = () => {
         submitFormData.append('file', formData.file);
       }
       
+      console.log('Form data prepared for submission');
+      
       // Submit the report
+      console.log('Sending form data to API');
       const response = await reportService.submitReport(submitFormData);
+      console.log('Report submission response:', response);
       
       if (response.success) {
         toast({
@@ -136,7 +141,7 @@ const ReportIncident = () => {
         });
         setExtractedText('');
       } else {
-        throw new Error(response.message);
+        throw new Error(response.message || 'Submission failed');
       }
     } catch (error: any) {
       console.error('Error submitting report:', error);
