@@ -1,42 +1,29 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import ReportCard from '@/components/ReportCard';
 import { Report } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/Card';
-import { Search, AlertTriangle } from 'lucide-react';
+import { Search, AlertTriangle, Loader2 } from 'lucide-react';
 import { reportService } from '@/services/api';
 
 const ViewReports = () => {
   const { toast } = useToast();
-  const [reports, setReports] = useState<Report[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  // Load reports
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        setIsLoading(true);
-        const data = await reportService.getReports();
-        setReports(data);
-        setError(null);
-      } catch (error: any) {
-        console.error('Error fetching reports:', error);
-        setError('Failed to load reports. Please try again later.');
-        toast({
-          title: "Error",
-          description: error.message || "Failed to fetch reports",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchReports();
-  }, [toast]);
+  
+  // Use React Query to fetch reports
+  const { data: reports = [], isLoading, error } = useQuery({
+    queryKey: ['reports'],
+    queryFn: reportService.getReports,
+    onError: (err: Error) => {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to fetch reports",
+        variant: "destructive",
+      });
+    },
+  });
 
   const filteredReports = reports.filter(report => 
     report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -141,7 +128,7 @@ const ViewReports = () => {
                 <AlertTriangle className="h-8 w-8 text-destructive" />
               </div>
               <h3 className="text-lg font-medium">Error Loading Reports</h3>
-              <p className="text-muted-foreground mt-1">{error}</p>
+              <p className="text-muted-foreground mt-1">{(error as Error).message || 'Failed to load reports'}</p>
             </div>
           ) : filteredReports.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

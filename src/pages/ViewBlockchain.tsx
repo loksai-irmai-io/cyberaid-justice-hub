@@ -1,43 +1,30 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import BlockchainBlock from '@/components/BlockchainBlock';
 import { Block } from '@/types';
 import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/Card';
 import Button from '@/components/Button';
-import { Database, Code, AlertTriangle } from 'lucide-react';
+import { Database, Code, AlertTriangle, Loader2 } from 'lucide-react';
 import { blockchainService } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 
 const ViewBlockchain = () => {
   const { toast } = useToast();
-  const [blockchain, setBlockchain] = useState<Block[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'blocks' | 'json'>('blocks');
 
-  // Load blockchain
-  useEffect(() => {
-    const fetchBlockchain = async () => {
-      try {
-        setIsLoading(true);
-        const data = await blockchainService.getBlocks();
-        setBlockchain(data);
-        setError(null);
-      } catch (error: any) {
-        console.error('Error fetching blockchain:', error);
-        setError('Failed to load blockchain data. Please try again later.');
-        toast({
-          title: "Error",
-          description: error.message || "Failed to fetch blockchain data",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchBlockchain();
-  }, [toast]);
+  // Use React Query to fetch blockchain data
+  const { data: blockchain = [], isLoading, error } = useQuery({
+    queryKey: ['blockchain'],
+    queryFn: blockchainService.getBlocks,
+    onError: (err: Error) => {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to fetch blockchain data",
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -85,7 +72,7 @@ const ViewBlockchain = () => {
                 <AlertTriangle className="h-8 w-8 text-destructive" />
               </div>
               <h3 className="text-lg font-medium">Error Loading Blockchain</h3>
-              <p className="text-muted-foreground mt-1">{error}</p>
+              <p className="text-muted-foreground mt-1">{(error as Error).message || 'Failed to load blockchain data'}</p>
             </div>
           ) : blockchain.length > 0 ? (
             viewMode === 'blocks' ? (
