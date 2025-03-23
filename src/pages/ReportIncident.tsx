@@ -1,14 +1,15 @@
-
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/Card';
 import Button from '@/components/Button';
 import { FileText, Upload, Mic, Calendar, MapPin, Phone, User } from 'lucide-react';
+import { reportService } from '@/services/api';
 
 const ReportIncident = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [evidenceType, setEvidenceType] = useState('Screenshot');
+  const [extractedText, setExtractedText] = useState('');
   
   // Form state
   const [formData, setFormData] = useState({
@@ -26,9 +27,32 @@ const ReportIncident = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFormData(prev => ({ ...prev, file: e.target.files![0] }));
+      const file = e.target.files[0];
+      setFormData(prev => ({ ...prev, file }));
+      
+      // Extract text if it's an image
+      if (evidenceType === 'Screenshot' && file.type.startsWith('image/')) {
+        try {
+          setIsLoading(true);
+          const response = await reportService.extractTextFromImage(file);
+          setExtractedText(response.extracted_text);
+          toast({
+            title: "Text extracted",
+            description: "Text has been successfully extracted from the image.",
+          });
+        } catch (error) {
+          console.error('Error extracting text:', error);
+          toast({
+            title: "Extraction failed",
+            description: "Failed to extract text from image.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      }
     }
   };
 
@@ -47,25 +71,62 @@ const ReportIncident = () => {
       return;
     }
     
-    // Simulate API call with delay
-    setTimeout(() => {
-      toast({
-        title: "Report submitted",
-        description: "Your incident has been reported successfully.",
-      });
-      setIsLoading(false);
+    try {
+      // Classify crime type
+      const classificationResponse = await reportService.classifyCrimeType(formData.description);
+      const crime_type = classificationResponse.crime_type;
       
-      // Reset form
-      setFormData({
-        name: '',
-        mobile: '',
-        place: '',
-        incident_date: new Date().toISOString().split('T')[0],
-        reporting_date: new Date().toISOString().split('T')[0],
-        description: '',
-        file: null,
+      // Create form data for submission
+      const submitFormData = new FormData();
+      submitFormData.append('name', formData.name);
+      submitFormData.append('mobile', formData.mobile);
+      submitFormData.append('place', formData.place);
+      submitFormData.append('incident_date', formData.incident_date);
+      submitFormData.append('reporting_date', formData.reporting_date);
+      submitFormData.append('description', formData.description);
+      submitFormData.append('crime_type', crime_type);
+      
+      if (extractedText) {
+        submitFormData.append('extracted_text', extractedText);
+      }
+      
+      if (formData.file) {
+        submitFormData.append('file', formData.file);
+      }
+      
+      // Submit the report
+      const response = await reportService.submitReport(submitFormData);
+      
+      if (response.success) {
+        toast({
+          title: "Report submitted",
+          description: "Your incident has been reported successfully.",
+        });
+        
+        // Reset form
+        setFormData({
+          name: '',
+          mobile: '',
+          place: '',
+          incident_date: new Date().toISOString().split('T')[0],
+          reporting_date: new Date().toISOString().split('T')[0],
+          description: '',
+          file: null,
+        });
+        setExtractedText('');
+      } else {
+        throw new Error(response.message);
+      }
+    } catch (error: any) {
+      console.error('Error submitting report:', error);
+      toast({
+        title: "Submission failed",
+        description: error.message || "Failed to submit your report. Please try again.",
+        variant: "destructive",
       });
-    }, 1500);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -227,6 +288,15 @@ const ReportIncident = () => {
                   </p>
                 )}
               </div>
+              
+              {extractedText && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Extracted Text</label>
+                  <div className="bg-muted/20 p-3 rounded-md text-sm">
+                    {extractedText}
+                  </div>
+                </div>
+              )}
               
               <div className="space-y-2">
                 <label htmlFor="description" className="text-sm font-medium flex items-center gap-2">

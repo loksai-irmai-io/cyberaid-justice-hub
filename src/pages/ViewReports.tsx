@@ -4,59 +4,39 @@ import ReportCard from '@/components/ReportCard';
 import { Report } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/Card';
-import { Search } from 'lucide-react';
-
-// Sample data (would be fetched from API in a real app)
-const sampleReports: Report[] = [
-  {
-    id: '1',
-    name: 'John Doe',
-    mobile: '+1 (555) 123-4567',
-    place: 'New York, NY',
-    incident_date: '2023-06-15',
-    reporting_date: '2023-06-17',
-    description: 'I received a suspicious email claiming to be from my bank asking for my login credentials. The email contained several grammar errors and the sender address was unusual.',
-    crime_type: 'Phishing',
-    extracted_text: 'Dear customer, we have noticed suspicious activity on your account. Please login immediately to verify your identity...'
-  },
-  {
-    id: '2',
-    name: 'Jane Smith',
-    mobile: '+1 (555) 987-6543',
-    place: 'San Francisco, CA',
-    incident_date: '2023-07-02',
-    reporting_date: '2023-07-03',
-    description: 'My computer was locked with a message demanding payment in Bitcoin to unlock my files. All my documents appear to be encrypted.',
-    crime_type: 'Ransomware',
-  },
-  {
-    id: '3',
-    name: 'Alex Johnson',
-    mobile: '+1 (555) 456-7890',
-    place: 'Chicago, IL',
-    incident_date: '2023-05-28',
-    reporting_date: '2023-06-01',
-    description: 'I noticed unauthorized transactions on my credit card statement. Someone made several purchases at online retailers I never visited.',
-    crime_type: 'Identity Theft',
-  }
-];
+import { Search, AlertTriangle } from 'lucide-react';
+import { reportService } from '@/services/api';
 
 const ViewReports = () => {
   const { toast } = useToast();
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   // Load reports
   useEffect(() => {
-    // Simulate API call
-    const timer = setTimeout(() => {
-      setReports(sampleReports);
-      setIsLoading(false);
-    }, 1000);
+    const fetchReports = async () => {
+      try {
+        setIsLoading(true);
+        const data = await reportService.getReports();
+        setReports(data);
+        setError(null);
+      } catch (error: any) {
+        console.error('Error fetching reports:', error);
+        setError('Failed to load reports. Please try again later.');
+        toast({
+          title: "Error",
+          description: error.message || "Failed to fetch reports",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    return () => clearTimeout(timer);
-  }, []);
+    fetchReports();
+  }, [toast]);
 
   const filteredReports = reports.filter(report => 
     report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -65,18 +45,67 @@ const ViewReports = () => {
     report.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleDownloadPDF = (report: Report) => {
-    toast({
-      title: "Download initiated",
-      description: `PDF report for ${report.name} is being prepared.`,
-    });
+  const handleDownloadPDF = async (report: Report) => {
+    try {
+      if (!report.id) {
+        throw new Error("Report ID is missing");
+      }
+      
+      const pdfBlob = await reportService.downloadReportPdf(report.id);
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(pdfBlob);
+      
+      // Create a link and trigger download
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `incident_report_${report.name}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Download complete",
+        description: `PDF report for ${report.name} has been downloaded.`,
+      });
+    } catch (error: any) {
+      console.error('Error downloading PDF:', error);
+      toast({
+        title: "Download failed",
+        description: error.message || "Failed to download PDF report.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleStoreInBlockchain = (report: Report) => {
-    toast({
-      title: "Success",
-      description: `Report for ${report.name} has been stored in the blockchain.`,
-    });
+  const handleStoreInBlockchain = async (report: Report) => {
+    try {
+      if (!report.id) {
+        throw new Error("Report ID is missing");
+      }
+      
+      const response = await reportService.storeInBlockchain(report.id);
+      
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: `Report for ${report.name} has been stored in the blockchain.`,
+        });
+      } else {
+        throw new Error(response.message);
+      }
+    } catch (error: any) {
+      console.error('Error storing in blockchain:', error);
+      toast({
+        title: "Operation failed",
+        description: error.message || "Failed to store report in blockchain.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -106,11 +135,19 @@ const ViewReports = () => {
                 <div key={i} className="h-[400px] bg-muted/20 rounded-xl animate-pulse-slow"></div>
               ))}
             </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <div className="mx-auto w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                <AlertTriangle className="h-8 w-8 text-destructive" />
+              </div>
+              <h3 className="text-lg font-medium">Error Loading Reports</h3>
+              <p className="text-muted-foreground mt-1">{error}</p>
+            </div>
           ) : filteredReports.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {filteredReports.map((report, index) => (
                 <div 
-                  key={report.id} 
+                  key={report.id || index} 
                   className="section-animation"
                   style={{ '--section-delay': index } as React.CSSProperties}
                 >

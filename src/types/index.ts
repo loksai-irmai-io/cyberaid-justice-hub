@@ -18,3 +18,19 @@ export interface Block {
   data: any;
   hash: string;
 }
+
+// Backend API response types
+export interface ApiResponse {
+  success: boolean;
+  message: string;
+  data?: any;
+}
+
+export interface ClassificationResponse {
+  crime_type: string;
+}
+
+export interface ExtractedTextResponse {
+  extracted_text: string;
+}
+
