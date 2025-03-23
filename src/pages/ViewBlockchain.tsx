@@ -17,18 +17,42 @@ const ViewBlockchain = () => {
   const { data: blockchain = [], isLoading, error } = useQuery({
     queryKey: ['blockchain'],
     queryFn: blockchainService.getBlocks,
-    onSuccess: (data) => {
-      console.log('Blockchain data fetched successfully:', data.length, 'blocks');
-    },
-    onError: (err: Error) => {
-      console.error('Error fetching blockchain data:', err);
+    meta: {
+      onSuccess: (data: Block[]) => {
+        console.log('Blockchain data fetched successfully:', data.length, 'blocks');
+      },
+      onError: (err: Error) => {
+        console.error('Error fetching blockchain data:', err);
+        toast({
+          title: "Error",
+          description: err.message || "Failed to fetch blockchain data",
+          variant: "destructive",
+        });
+      }
+    }
+  });
+
+  // If there's an error, log it and show toast notification
+  if (error) {
+    console.error('Error in blockchain query:', error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to fetch blockchain data";
+    
+    // Only show toast once to prevent multiple toasts
+    React.useEffect(() => {
       toast({
         title: "Error",
-        description: err.message || "Failed to fetch blockchain data",
+        description: errorMessage,
         variant: "destructive",
       });
-    },
-  });
+    }, [error]);
+  }
+
+  // If fetch is successful, log it
+  React.useEffect(() => {
+    if (blockchain && blockchain.length > 0) {
+      console.log('Blockchain data loaded:', blockchain.length, 'blocks');
+    }
+  }, [blockchain]);
 
   return (
     <div className="space-y-6 animate-fade-in">

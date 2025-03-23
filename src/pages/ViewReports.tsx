@@ -15,19 +15,27 @@ const ViewReports = () => {
   // Use React Query to fetch reports
   const { data: reports = [], isLoading, error } = useQuery({
     queryKey: ['reports'],
-    queryFn: reportService.getReports,
-    onSuccess: (data) => {
-      console.log('Reports fetched successfully:', data.length, 'reports');
-    },
-    onError: (err: Error) => {
-      console.error('Error fetching reports:', err);
+    queryFn: reportService.getReports
+  });
+
+  // If there's an error, log it and show toast notification
+  React.useEffect(() => {
+    if (error) {
+      console.error('Error fetching reports:', error);
       toast({
         title: "Error",
-        description: err.message || "Failed to fetch reports",
+        description: error instanceof Error ? error.message : "Failed to fetch reports",
         variant: "destructive",
       });
-    },
-  });
+    }
+  }, [error, toast]);
+
+  // If fetch is successful, log it
+  React.useEffect(() => {
+    if (reports && reports.length > 0) {
+      console.log('Reports fetched successfully:', reports.length, 'reports');
+    }
+  }, [reports]);
 
   const filteredReports = reports.filter(report => 
     report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
