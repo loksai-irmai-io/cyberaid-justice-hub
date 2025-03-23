@@ -8,6 +8,7 @@ import os
 import datetime
 import logging
 from pydantic import BaseModel
+import traceback
 
 # Import your existing code - adjust imports if needed
 from PIL import Image
@@ -137,31 +138,39 @@ def extract_text_from_image(image_path):
     try:
         logging.info(f"Extracting text from: {image_path}")
         
-        # Open the image and process it
-        img = Image.open(image_path)
-        logging.info(f"Image opened successfully: {img.format}, {img.size}, {img.mode}")
-        
-        # Convert to grayscale if needed
-        if img.mode != 'L':
-            img = img.convert('L')
-            logging.info(f"Converted image to grayscale")
-        
-        # Convert to numpy array
-        img_np = np.array(img)
-        logging.info(f"Converted image to numpy array: {img_np.shape}")
-        
-        # Perform OCR
-        logging.info("Performing OCR with EasyOCR...")
-        results = reader.readtext(img_np)
-        
-        # Extract the text from the results
-        extracted_text = "\n".join([res[1] for res in results])
-        logging.info(f"Extracted text (length: {len(extracted_text)}): {extracted_text[:100]}...")
-        
-        return extracted_text
+        # Detailed error handling and logging for image processing
+        try:
+            # Open the image and process it
+            img = Image.open(image_path)
+            logging.info(f"Image opened successfully: {img.format}, {img.size}, {img.mode}")
+            
+            # Convert to grayscale if needed
+            if img.mode != 'L':
+                img = img.convert('L')
+                logging.info(f"Converted image to grayscale")
+            
+            # Convert to numpy array
+            img_np = np.array(img)
+            logging.info(f"Converted image to numpy array: {img_np.shape}")
+            
+            # Perform OCR with proper error handling
+            logging.info("Performing OCR with EasyOCR...")
+            results = reader.readtext(img_np)
+            
+            # Extract the text from the results
+            extracted_text = "\n".join([res[1] for res in results])
+            logging.info(f"Extracted text (length: {len(extracted_text)}): {extracted_text[:100]}...")
+            
+            return extracted_text
+        except Exception as img_error:
+            error_details = traceback.format_exc()
+            logging.error(f"Image processing error: {str(img_error)}\n{error_details}")
+            return f"Error processing image: {str(img_error)}"
+            
     except Exception as e:
-        logging.error(f"Error extracting text: {str(e)}", exc_info=True)
-        return ""
+        error_details = traceback.format_exc()
+        logging.error(f"Error extracting text: {str(e)}\n{error_details}")
+        return f"Error extracting text: {str(e)}"
 
 # Function to classify crime using Gemini AI
 def classify_crime(text):
@@ -310,7 +319,7 @@ class ApiResponse(BaseModel):
     message: str
     data: Optional[dict] = None
 
-class ExtractTextResponse(BaseModel):
+class ExtractedTextResponse(BaseModel):
     extracted_text: str
 
 class ClassificationResponse(BaseModel):
@@ -333,11 +342,16 @@ app.add_middleware(
 async def root():
     return {"message": "Welcome to CyberAID API"}
 
-@app.post("/extract-text", response_model=ExtractTextResponse)
+@app.post("/extract-text", response_model=ExtractedTextResponse)
 async def extract_text(file: UploadFile = File(...)):
     try:
         # Log information about the file
         logging.info(f"Received file: {file.filename}, Content-Type: {file.content_type}")
+        
+        # Validate file type
+        if not file.content_type.startswith('image/'):
+            logging.error(f"Invalid file type: {file.content_type}")
+            raise HTTPException(status_code=400, detail=f"Invalid file type: {file.content_type}. Only image files are supported.")
         
         # Create a temporary directory if it doesn't exist
         os.makedirs("temp", exist_ok=True)
@@ -359,7 +373,8 @@ async def extract_text(file: UploadFile = File(...)):
         # Return the extracted text
         return {"extracted_text": extracted_text}
     except Exception as e:
-        logging.error(f"Error in /extract-text: {str(e)}", exc_info=True)
+        error_details = traceback.format_exc()
+        logging.error(f"Error in /extract-text: {str(e)}\n{error_details}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/classify", response_model=ClassificationResponse)

@@ -63,12 +63,32 @@ export const reportService = {
 
   // Extract text from image
   extractTextFromImage: async (file: File): Promise<ExtractedTextResponse> => {
+    // Validate the file input
+    if (!file) {
+      console.error('No file provided for text extraction');
+      throw new Error('No file provided');
+    }
+
+    // Validate file type is an image
+    if (!file.type.startsWith('image/')) {
+      console.error('Invalid file type for text extraction:', file.type);
+      throw new Error('Invalid file type: Only image files are supported');
+    }
+
     const formData = new FormData();
     formData.append('file', file);
     
-    console.log('Sending file for text extraction:', file.name, file.type, file.size);
+    // Log detailed information about the file being sent
+    console.log('Sending file for text extraction:', {
+      name: file.name,
+      type: file.type,
+      size: `${(file.size / 1024).toFixed(2)} KB`,
+      lastModified: new Date(file.lastModified).toISOString()
+    });
     
     try {
+      // Make sure we send the multipart/form-data without manually setting content-type
+      // (browser will set it automatically with correct boundary)
       const response = await fetch(`${API_BASE_URL}/extract-text`, {
         method: 'POST',
         body: formData,
@@ -77,12 +97,20 @@ export const reportService = {
       console.log('Extract text response status:', response.status);
       
       if (!response.ok) {
-        console.error('Error response:', await response.text());
-        throw new Error(`API Error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Error response from extract-text API:', errorText);
+        throw new Error(`API Error: ${response.status}. ${errorText}`);
       }
       
       const data = await response.json();
       console.log('Extracted text data:', data);
+      
+      // Validate the response contains the expected extracted_text field
+      if (!data.hasOwnProperty('extracted_text')) {
+        console.error('Invalid response format:', data);
+        throw new Error('Invalid response format from server');
+      }
+      
       return data;
     } catch (error) {
       console.error('Error in extractTextFromImage:', error);
